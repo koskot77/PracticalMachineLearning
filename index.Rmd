@@ -1,0 +1,56 @@
+---
+title: "Practical Machine Lerning course project"
+author: "KK"
+date: "24.01.2015"
+output: html_document
+---
+**The goal of the project is to use a subset of 159 measurements and identify the event category (total six categories)**
+
+Prerequisites (make sure you either have the datasets or *curl* library properly installed in your system; in addition you are also assumed to have *caret* package):
+```{r, echo=FALSE}
+if( !file.exists("pml-training.csv") ){   
+   download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile="pml-training.csv",method="curl")
+}
+train <- read.csv(file='pml-training.csv',head=T,sep=',')
+```
+ - training sample with 159 observables + 1 parameter of interest (POI), `r length(train$user_name)` events total
+```{r echo=FALSE}
+if( !file.exists("pml-testing.csv") ){   
+   download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",destfile="pml-testing.csv",method="curl")
+}
+test <- read.csv(file='pml-testing.csv',head=T,sep=',')
+```
+ - test sample including the same 159 observables, `r length(test$user_name)` events total
+ 
+ - description of the problem on the course web site: <https://class.coursera.org/predmachlearn-010>
+
+A simple exloratory analysis of the training sample reveals a subset of the observables that are either NA or empty factors in 98% events. I choose to dismiss those and additionally narrowed the list of the training observables down to 46 smooth variables (+ the POI):
+```{r, echo=FALSE}
+vars <- c("classe","accel_arm_y","accel_arm_z","accel_belt_x","accel_belt_y","accel_belt_z","accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z","accel_forearm_x","accel_forearm_y","accel_forearm_z","gyros_arm_x","gyros_arm_y","gyros_arm_z","gyros_belt_z","gyros_belt_y","gyros_belt_x","magnet_arm_x","magnet_arm_y","magnet_arm_z","magnet_belt_x","magnet_belt_y","magnet_belt_z","magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z","magnet_forearm_x","magnet_forearm_y","magnet_forearm_z","num_window","pitch_arm","pitch_belt","pitch_dumbbell","pitch_forearm","roll_arm","roll_belt","roll_dumbbell","roll_forearm","total_accel_arm","total_accel_belt","total_accel_dumbbell","total_accel_forearm","yaw_arm","yaw_belt","yaw_dumbbell","yaw_forearm")
+print(vars)
+cols1 <- which(colnames(train) %in% vars )
+cols2 <- which(colnames(test)  %in% vars )
+newTrain <- train[,cols1]
+newTest  <- test [,cols2]
+```
+For validation purposes I split the training sample as 75%/25%.
+```{r}
+library(caret)
+part = createDataPartition(newTrain$classe, p = 3/4)[[1]]
+training   = newTrain[ part,]
+validation = newTrain[-part,]
+POI1 <- which(colnames(training)=="classe")
+```
+The model building goes as follows:
+```{r}
+train_control <- trainControl(method="cv", number=3)
+modelFit <- train(training$classe ~ .,method="rf",data=training[, -POI1],trControl = train_control)
+```
+The validation demonstrates a pretty good result:
+```{r}
+confusionMatrix(validation$classe, predict(modelFit,validation[, -POI1]) )
+```
+The last step is to predict categories in the test sample:
+```{r}
+predict(modelFit,newTest)
+```
