@@ -67,7 +67,7 @@ img {
 </div>
 
 
-<p><strong>The goal of the project is to use a subset of 159 measurements and identify the event category (total six categories)</strong></p>
+<p><strong>The goal of the project is to use a subset of 159 measurements and identify the event category (five categories total)</strong></p>
 <p>Prerequisites (make sure you either have the datasets or <em>curl</em> library properly installed in your system; in addition you are also assumed to have <em>caret</em> package):</p>
 <ul>
 <li><p>training sample with 159 observables + 1 parameter of interest (POI), 19622 events total</p></li>
@@ -92,48 +92,34 @@ img {
 ## [43] &quot;total_accel_forearm&quot;  &quot;yaw_arm&quot;              &quot;yaw_belt&quot;            
 ## [46] &quot;yaw_dumbbell&quot;         &quot;yaw_forearm&quot;</code></pre>
 <p>For validation purposes I split the training sample as 75%/25%.</p>
-<pre><code>## Loading required package: lattice
-## Loading required package: ggplot2</code></pre>
+<pre class="r"><code>suppressMessages( library(caret) )
+part = createDataPartition(newTrain$classe, p = 3/4)[[1]]
+training   = newTrain[ part,]
+validation = newTrain[-part,]
+POI &lt;- which(colnames(newTrain)==&quot;classe&quot;)
+suppressMessages( library(doMC) )
+registerDoMC(cores = 4)</code></pre>
 <p>The model building goes as follows:</p>
-<pre class="r"><code>train_control &lt;- trainControl(method=&quot;cv&quot;, number=3)
-modelFit &lt;- train(training$classe ~ .,method=&quot;rf&quot;,data=training[, -POI1],trControl = train_control)</code></pre>
-<pre><code>## Loading required package: randomForest
-## randomForest 4.6-10
-## Type rfNews() to see new features/changes/bug fixes.
-## Loading required namespace: e1071</code></pre>
-<p>The validation demonstrates a pretty good result:</p>
-<pre class="r"><code>confusionMatrix(validation$classe, predict(modelFit,validation[, -POI1]) )</code></pre>
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
+<pre class="r"><code>train_control &lt;- trainControl(method=&quot;cv&quot;, number=10)
+suppressMessages(
+  modelFit &lt;- train(training$classe ~ .,method=&quot;rf&quot;,data=training[, -POI],trControl = train_control)
+ )
+#print(modelFit$results)</code></pre>
+<p>The out-of-sample error is 0.0037 with the standard deviation of 0.0014. Validation also demonstrates a pretty good result on the validation subsample:</p>
+<pre class="r"><code>cm &lt;- confusionMatrix(validation$classe, predict(modelFit,validation[, -POI]) )
+print(cm$table)</code></pre>
+<pre><code>##           Reference
 ## Prediction    A    B    C    D    E
-##          A 1394    0    0    0    1
-##          B    3  944    1    1    0
-##          C    0    3  852    0    0
-##          D    0    0    0  804    0
-##          E    0    0    0    5  896
-## 
-## Overall Statistics
-##                                         
-##                Accuracy : 0.997         
-##                  95% CI : (0.995, 0.998)
-##     No Information Rate : 0.285         
-##     P-Value [Acc &gt; NIR] : &lt;2e-16        
-##                                         
-##                   Kappa : 0.996         
-##  Mcnemar's Test P-Value : NA            
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity             0.998    0.997    0.999    0.993    0.999
-## Specificity             1.000    0.999    0.999    1.000    0.999
-## Pos Pred Value          0.999    0.995    0.996    1.000    0.994
-## Neg Pred Value          0.999    0.999    1.000    0.999    1.000
-## Prevalence              0.285    0.193    0.174    0.165    0.183
-## Detection Rate          0.284    0.192    0.174    0.164    0.183
-## Detection Prevalence    0.284    0.194    0.174    0.164    0.184
-## Balanced Accuracy       0.999    0.998    0.999    0.996    0.999</code></pre>
+##          A 1395    0    0    0    0
+##          B    3  945    1    0    0
+##          C    0    2  853    0    0
+##          D    0    0    2  801    1
+##          E    0    0    0    0  901</code></pre>
+<p>The last step is to predict categories in the test sample:</p>
+<pre class="r"><code>predict(modelFit,newTest)</code></pre>
+<pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E</code></pre>
+<p>This gives 100% correct result, according to the results from assignement page.</p>
 
 
 </div>
